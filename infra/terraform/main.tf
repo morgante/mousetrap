@@ -14,6 +14,7 @@ module "project-factory" {
   activate_apis = [
     "compute.googleapis.com",
     "cloudbuild.googleapis.com",
-    "run.googleapis.com"
+    "run.googleapis.com",
+    "appengineflex.googleapis.com"
   ]
 }

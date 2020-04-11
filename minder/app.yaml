@@ -10,5 +10,7 @@ manual_scaling:
 
 network:
   session_affinity: true
+  instance_tag: appengine-minder
+  name: sbx-mousetrap
+  subnetwork_name: sbx-appengine
 # [END appengine_websockets_yaml]
-
