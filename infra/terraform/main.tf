@@ -10,4 +10,9 @@ module "project-factory" {
   org_id          = var.organization_id
   folder_id       = var.folder_id
   billing_account = var.billing_account
+
+  activate_apis = [
+    "compute.googleapis.com"
+    # "run.googleapis.com"
+  ]
 }
