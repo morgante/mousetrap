@@ -18,28 +18,16 @@ class Start extends React.Component {
 
     componentDidMount() {
         const { endpoint } = this.state;
-        this.socket.on("chat message", data => {
+        this.socket.on("datum", data => {
             console.log("chat", data);
             // this.setState({ response: data})
         });
-      }
-
-    //   $('form').submit(function(){
-    //     console.log($('#m').val());
-    //     socket.emit('chat message', $('#m').val());
-    //     $('#m').val('');
-    //     return false;
-    //   });
-    //   socket.on('chat message', function(msg){
-    //     console.log(msg);
-    //     $('#messages').append($('<li>').text(msg));
-    //     window.scrollTo(0, document.body.scrollHeight);
-    //   });
+    }
 
     start(e) {
         e.preventDefault();
         console.log("I have started");
-        this.socket.emit('chat message', 'start plz');
+        this.socket.emit('datum', 'start plz');
     }
 
     render () {

@@ -2,6 +2,12 @@
 runtime: nodejs
 env: flex
 
+env_variables:
+  # This token is used to verify that requests originate from your
+  # application. It can be any sufficiently random string.
+  # TODO: secure this token
+  PUBSUB_VERIFICATION_TOKEN: MUgKUc7D7FXEyUqzBDcfQwVYbPcupE
+
 # Use only a single instance, so that this local-memory-only chat app will work
 # consistently with multiple users. To work across multiple instances, an
 # extra-instance messaging system or data store would be needed.

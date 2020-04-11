@@ -16,19 +16,32 @@
 
 // [START appengine_websockets_app]
 const app = require('express')();
-app.set('view engine', 'pug');
 
 const server = require('http').Server(app);
 const io = require('socket.io')(server);
 
-app.get('/', (req, res) => {
-  res.render('index.pug');
+io.on('connection', (socket) => {
+  socket.on('datum', (data) => {
+    io.emit('datum', data);
+  });
 });
 
-io.on('connection', (socket) => {
-  socket.on('chat message', (msg) => {
-    io.emit('chat message', msg);
-  });
+app.post('/pubsub/push', jsonBodyParser, (req, res) => {
+  if (req.query.token !== PUBSUB_VERIFICATION_TOKEN) {
+    res.status(400).send();
+    return;
+  }
+
+  // The message is a unicode string encoded in base64.
+  const message = Buffer.from(req.body.message.data, 'base64').toString(
+    'utf-8'
+  );
+
+  console.log('received message', req.body, message);
+
+  io.emit('datum', message);
+
+  res.status(200).send();
 });
 
 if (module === require.main) {
