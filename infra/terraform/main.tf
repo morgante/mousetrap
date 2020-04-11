@@ -12,7 +12,8 @@ module "project-factory" {
   billing_account = var.billing_account
 
   activate_apis = [
-    "compute.googleapis.com"
-    # "run.googleapis.com"
+    "compute.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "run.googleapis.com"
   ]
 }
