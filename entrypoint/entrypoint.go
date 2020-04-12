@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,12 +18,55 @@ var (
 
 const pubsubStateTopic = "ball-state"
 
+type Ball struct {
+	Session string `json:"session"`
+	ID      string `json:"id"`
+	Color   string `json:"color"`
+}
+
+type EventData struct {
+	Event string `json:"event"`
+	Ball  Ball   `json:"ball"`
+}
+
+type EventMessage struct {
+	Session string    `json:"session"`
+	Data    EventData `json:"data"`
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Print("Entrypoint received a request.")
 
+	// Declare a new Person struct.
+	var b Ball
+
+	// Try to decode the request body into the struct. If there is an error,
+	// respond to the client with the error message and a 400 status code.
+	err := json.NewDecoder(r.Body).Decode(&b)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	message := &EventMessage{
+		Session: b.Session,
+		Data: EventData{
+			Event: "entrypoint_start",
+			Ball:  b,
+		},
+	}
+
+	data, err := json.Marshal(message)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fmt.Fprintf(w, "Message %s!\n", data)
+
 	t := pubsubClient.Topic(pubsubStateTopic)
 	result := t.Publish(context.Background(), &pubsub.Message{
-		Data: []byte("Hello world!"),
+		Data: data,
 	})
 
 	log.Printf("Result: %v", result)

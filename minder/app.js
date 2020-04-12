@@ -38,13 +38,13 @@ app.post('/pubsub/push', jsonBodyParser, (req, res) => {
   }
 
   // The message is a unicode string encoded in base64.
-  const message = Buffer.from(req.body.message.data, 'base64').toString(
+  const message = JSON.parse(Buffer.from(req.body.message.data, 'base64').toString(
     'utf-8'
-  );
+  ));
 
   console.log('received message', req.body, message);
 
-  io.emit('datum', message);
+  io.to(`${message.session}`).emit('datum', message.data);
 
   res.status(200).send();
 });

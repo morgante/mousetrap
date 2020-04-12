@@ -17,7 +17,10 @@ SHELL := /usr/bin/env bash
 
 PROJECT_ID := clf-sbx-mousetrap
 
-# gcloud builds submit --tag gcr.io/clf-sbx-mousetrap/entrypoint
+.PHONY: run
+run: ## Run the app locally
+	go build -v -o server
+	./server
 
 .PHONY: build
 build: ## Build the entrypoint
