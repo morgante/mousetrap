@@ -16,9 +16,14 @@
 
 // [START appengine_websockets_app]
 const app = require('express')();
+const bodyParser = require('body-parser');
+
+const jsonBodyParser = bodyParser.json();
 
 const server = require('http').Server(app);
 const io = require('socket.io')(server);
+
+const {PUBSUB_VERIFICATION_TOKEN} = process.env;
 
 io.on('connection', (socket) => {
   socket.on('datum', (data) => {

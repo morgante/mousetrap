@@ -34,6 +34,11 @@ or with `yarn`:
 
     yarn start
 
+## Testing a messsage
+```
+curl -H "Content-Type: application/json" -i --data @sample_message.json "localhost:8080/pubsub/push?token=${PUBSUB_VERIFICATION_TOKEN}"
+```
+
 ## Deploying to App Engine
 
 With `npm`:
