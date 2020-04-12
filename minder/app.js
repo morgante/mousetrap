@@ -26,10 +26,22 @@ const io = require('socket.io')(server);
 const {PUBSUB_VERIFICATION_TOKEN} = process.env;
 
 io.on('connection', (socket) => {
+  socket.on('start-session', (session) => {
+    console.log('joining', session);
+    socket.join(session);
+  });
   socket.on('datum', (data) => {
     io.emit('datum', data);
+    io.to(`cool-sess`).emit('datum', 'cool session');
   });
 });
+
+// //Increase roomno 2 clients are present in a room.
+// if(io.nsps['/'].adapter.rooms["room-"+roomno] && io.nsps['/'].adapter.rooms["room-"+roomno].length > 1) roomno++;
+// socket.join("room-"+roomno);
+
+// //Send this event to everyone in the room.
+// io.sockets.in("room-"+roomno).emit('connectToRoom', "You are in room no. "+roomno);
 
 app.post('/pubsub/push', jsonBodyParser, (req, res) => {
   if (req.query.token !== PUBSUB_VERIFICATION_TOKEN) {

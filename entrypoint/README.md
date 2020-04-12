@@ -7,5 +7,8 @@ make run
 
 Submit a request:
 ```
-curl -H "Content-Type: application/json" -i --data @sample_request.json "localhost:8080/"
+ENDPOINT=localhost:8080
+curl -H "Content-Type: application/json" -i --data @sample_request.json "${ENDPOINT}"
 ```
+
+## Remote Testing
