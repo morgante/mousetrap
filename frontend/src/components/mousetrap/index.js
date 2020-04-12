@@ -64,6 +64,18 @@ class Mousetrap extends React.Component {
             });
         }, 2000);
 
+        setTimeout(() => {
+            this.setState({
+                balls: {
+                    ...this.state.balls,
+                    [ball.id]: {
+                        ...this.state.balls[ball.id],
+                        stage: "entrypoint_done",
+                    },
+                }
+            });
+        }, 4000);
+
         fetch(ENTRY_ENDPOINT, {
             method: 'POST',
             mode: 'no-cors',

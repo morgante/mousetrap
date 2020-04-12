@@ -1,7 +1,8 @@
 import PropTypes from "prop-types";
 import React from "react";
 import Matter, { Body, Bodies, Composite, Events, World, Common } from "matter-js";
-import _ from 'lodash'
+import _ from 'lodash';
+import update from 'immutability-helper';
 
 const ballColors = {
     'green': '#C7F464',
@@ -13,6 +14,7 @@ const ballStages = {
     default: 0x0001,
     box_blocked: 0x0002,
     box_enter: 0x0004,
+    box_exit: 0x0008
 };
 
 function collissionMask(stage) {
@@ -20,7 +22,6 @@ function collissionMask(stage) {
 }
 
 function collisionCategory(ball, ballState) {
-    console.log("get collission category", ball, ballState);
     switch (ball.stage) {
         case "entrypoint_wait":
             return ballStages["box_blocked"];
@@ -29,6 +30,12 @@ function collisionCategory(ball, ballState) {
                 return ballStages["box_blocked"];
             } else {
                 return ballStages["box_enter"];
+            }
+        case "entrypoint_done":
+            if (ballState.boxed) {
+                return ballStages["box_exit"];
+            } else {
+                return ballStages["box_blocked"];
             }
         default:
             return ballStages["default"];
@@ -45,7 +52,7 @@ class Scene extends React.Component {
         const world = engine.world;
 
         const scale = {
-            x: 0.5,
+            x: 1,
             y: 1
         };
 
@@ -76,58 +83,71 @@ class Scene extends React.Component {
                 },
                 ...opts
             };
+            const boxes = {
+                sensor: Bodies.rectangle(x, y, width - 50, height - 50, {
+                    isSensor: true,
+                    isStatic: true,
+                    render: {
+                        lineWidth: 1
+                    }
+                }),
+                top: Bodies.rectangle(x, y - (height / 2), width, 1, options),
+                bottom: Bodies.rectangle(x, y + (height / 2), width, 1, options),
+                left: Bodies.rectangle(x - (width / 2), y, 1, height, options),
+                right: Bodies.rectangle(x + (width / 2), y, 1, height, options)
+            };
 
-            World.add(world, [
-                Bodies.rectangle(x, y - (height / 2), width, 1, options),
-                Bodies.rectangle(x, y + (height / 2), width, 1, options),
-                Bodies.rectangle(x - (width / 2), y, 1, height, options),
-                Bodies.rectangle(x + (width / 2), y, 1, height, options)
-            ]);
+            World.add(world, _.values(boxes));
 
-            var sensor = Bodies.rectangle(x, y, width - 50, height - 50, {
-                isSensor: true,
-                isStatic: true,
-                render: {
-                    lineWidth: 1
-                }
-            });
-
-            World.add(world, sensor);
-            return sensor;
+            return boxes;
         }
 
-        const enterBox = (box_name, body) => {
+        const boxDoor = (isBoxed) => (box_name, body) => {
+            console.log("enter/exit bot", isBoxed, body);
             const ballState = this.state.balls[body.label];
-            console.log("enter box", body, ballState);
-
-            this.setState({
+            this.setState(update(this.state, {
                 balls: {
-                    ...this.state.balls,
                     [ballState.ball]: {
-                        ...ballState,
-                        boxed: true
+                        boxed: {$set: isBoxed}
                     }
                 }
-            });
+            }));
         };
+        const enterBox = boxDoor(true);
+        const exitBox = boxDoor(false);
 
-        const collider = addBox(scale.x * 600, 150, scale.x * 300, 100, {
+        // Add the first box
+        const entrypointBox = addBox(scale.x * 600, 150, scale.x * 300, 100, {
             collisionFilter: {
-                mask: collissionMask("box_blocked")
+                mask: ballStages["default"] | ballStages["box_blocked"] | ballStages["box_exit"]
             }
         });
 
+        entrypointBox.bottom.collisionFilter.mask = ballStages["default"] | ballStages["box_blocked"];
+
+        Events.on(engine, 'collisionStart', function(event) {
+            _.each(event.pairs, (pair) => {
+                if (pair.bodyA === entrypointBox.sensor) {
+                    enterBox("collider", pair.bodyB);
+                } else if (pair.bodyB === entrypointBox.sensor) {
+                    enterBox("collider", pair.bodyA);
+                }
+            });
+        });
+
+        Events.on(engine, 'collisionEnd', function(event) {
+            _.each(event.pairs, (pair) => {
+                if (pair.bodyA === entrypointBox.sensor) {
+                    exitBox("collider", pair.bodyB);
+                } else if (pair.bodyB === entrypointBox.sensor) {
+                    exitBox("collider", pair.bodyA);
+                }
+            });
+        });
+
         const explode = (body) => {
-            if (body.isStatic) {
-                return;
-            }
-
             const ballState = this.state.balls[body.label];
-            if (ballState === undefined) {
-                return;
-            }
-
-            if (!ballState.boxed) {
+            if (body.isStatic || ballState === undefined || !ballState.boxed) {
                 return;
             }
 
@@ -153,34 +173,6 @@ class Scene extends React.Component {
 
                 // reset counter
                 counter = 0;
-            }
-        });
-
-        Events.on(engine, 'collisionStart', function(event) {
-            var pairs = event.pairs;
-
-            for (var i = 0, j = pairs.length; i != j; ++i) {
-                var pair = pairs[i];
-
-                if (pair.bodyA === collider) {
-                    enterBox("collider", pair.bodyB);
-                } else if (pair.bodyB === collider) {
-                    enterBox("collider", pair.bodyA);
-                }
-            }
-        });
-
-        Events.on(engine, 'collisionEnd', function(event) {
-            var pairs = event.pairs;
-
-            for (var i = 0, j = pairs.length; i != j; ++i) {
-                var pair = pairs[i];
-
-                if (pair.bodyA === collider) {
-                    pair.bodyB.render.fillStyle = ballColors['green'];
-                } else if (pair.bodyB === collider) {
-                    pair.bodyA.render.fillStyle = ballColors['green'];
-                }
             }
         });
 
@@ -211,7 +203,6 @@ class Scene extends React.Component {
             frictionAir: 0,
             friction: 0.0001,
             restitution: 0.8,
-            density: 0.000001,
             label: ball.id,
             render: {
                 fillStyle: ballColors[ball.color],
