@@ -1,7 +1,25 @@
 import PropTypes from "prop-types";
 import React from "react";
 import Matter, { Bodies, Composites, World } from "matter-js";
-import _ from "underscore";
+import _ from 'lodash'
+
+const ballColors = {
+    'green': '#C7F464',
+    'red': '#C44D58',
+};
+export const BALL_COLORS = _.keys(ballColors);
+
+const collisionCategories = {
+    default: "0x0001",
+    green: "0x0002",
+    red: "0x0004"
+};
+
+// // define our categories (as bit fields, there are up to 32 available)
+// var defaultCategory = 0x0001,
+//     redCategory = 0x0002,
+//     greenCategory = 0x0004,
+//     blueCategory = 0x0008;
 
 class Scene extends React.Component {
     state = {
@@ -28,6 +46,18 @@ class Scene extends React.Component {
             Bodies.rectangle(500, 350, 700, 20, { isStatic: true, angle: -Math.PI * 0.06 }),
             Bodies.rectangle(340, 580, 700, 20, { isStatic: true, angle: Math.PI * 0.04 })
         ]);
+
+        // Add a filter/obstacle
+        const blocker = Bodies.rectangle(400, 100, 300, 50, {
+            isStatic: true,
+            angle: Math.PI * -0.3,
+            collisionFilter: {
+                // category: collisionCategories["green"]
+                mask: collisionCategories["green"]
+            }
+        });
+
+        World.add(engine.world, blocker);
     
         // add mouse control
         var mouse = Matter.Mouse.create(render.canvas);
@@ -59,8 +89,17 @@ class Scene extends React.Component {
                 const body = Bodies.circle(210, 100, 30, {
                     friction: 0.00001,
                     restitution: 0.5,
-                    density: 0.001 
+                    density: 0.001,
+                    render: {
+                        fillStyle: ballColors[ball.color],
+                        lineWidth: 1
+                    },
+                    collisionFilter: {
+                        category: collisionCategories[ball.color]
+                        // mask: collisionCategories["default"] | collisionCategories[ball.color]
+                    }
                 });
+                console.log("add body", body);
                 this.state.balls[ball.id] = {
                     ball: ball,
                     body: body

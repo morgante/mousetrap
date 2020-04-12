@@ -1,9 +1,10 @@
 import React from "react";
 import socketIOClient from "socket.io-client";
 import { v4 as uuid } from 'uuid';
+import _ from 'lodash'
 
 import Start from "./start";
-import Scene from "./scene";
+import Scene, { BALL_COLORS } from "./scene";
 
 // const SOCKET_ENDPOINT = "http://localhost:8080";
 const SOCKET_ENDPOINT = "https://clf-sbx-mousetrap.uk.r.appspot.com";
@@ -40,8 +41,8 @@ class Mousetrap extends React.Component {
 
         const ball = {
             id: uuid(),
-            color: 'green'
-        }
+            color: _.sample(BALL_COLORS)
+        };
 
         this.setState({
             balls: [...this.state.balls, ball]
