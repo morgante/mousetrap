@@ -3,6 +3,7 @@ import socketIOClient from "socket.io-client";
 import { v4 as uuid } from 'uuid';
 
 import Start from "./start";
+import Scene from "./scene";
 
 // const SOCKET_ENDPOINT = "http://localhost:8080";
 const SOCKET_ENDPOINT = "https://clf-sbx-mousetrap.uk.r.appspot.com";
@@ -42,7 +43,9 @@ class Mousetrap extends React.Component {
             color: 'green'
         }
 
-        console.log("I have started");
+        this.setState({
+            balls: [...this.state.balls, ball]
+        });
 
         fetch(ENTRY_ENDPOINT, {
             method: 'POST',
@@ -56,11 +59,16 @@ class Mousetrap extends React.Component {
                 ...ball
             })
         });
+
+        console.log("balls", this.state.balls);
     }
 
     render () {
         return (
-            <Start start={this.start} />
+            <div>
+                <Start start={this.start} />
+                <Scene balls={this.state.balls} />
+            </div>
         )
     }
 }
