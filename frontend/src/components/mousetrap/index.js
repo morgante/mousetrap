@@ -62,7 +62,7 @@ class Mousetrap extends React.Component {
                     },
                 }
             });
-        }, 3000);
+        }, 2000);
 
         fetch(ENTRY_ENDPOINT, {
             method: 'POST',
