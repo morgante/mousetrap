@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import React from "react";
-import Matter, { Body, Bodies, Composites, Events, World, Common } from "matter-js";
+import Matter, { Body, Bodies, Composite, Events, World, Common } from "matter-js";
 import _ from 'lodash'
 
 const ballColors = {
@@ -41,38 +41,33 @@ class Scene extends React.Component {
     }
 
     componentDidMount() {
-        var engine = Matter.Engine.create({
-            // positionIterations: 20
-        });
+        const engine = Matter.Engine.create({});
+        const world = engine.world;
 
-        var render = Matter.Render.create({
+        const scale = {
+            x: 0.5,
+            y: 1
+        };
+
+        const render = Matter.Render.create({
             element: this.refs.scene,
             engine: engine,
             options: {
-              width: 600,
+              width: scale.x * 800,
               height: 600,
-              wireframes: false
+              wireframes: false,
+              showAngleIndicator: true
             }
         });
 
         World.add(engine.world, [
-            Bodies.rectangle(200, 150, 400, 20, { isStatic: true, angle: Math.PI * 0.06 }),
-            Bodies.rectangle(500, 350, 700, 20, { isStatic: true, angle: -Math.PI * 0.06 }),
-            Bodies.rectangle(340, 580, 700, 20, { isStatic: true, angle: Math.PI * 0.04 })
+            Bodies.rectangle(scale.x * 200, 150, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
+            Bodies.rectangle(scale.x * 600, 350, scale.x * 500, 20, { isStatic: true, angle: -Math.PI * 0.06 }),
+            Bodies.rectangle(scale.x * 200, 480, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
         ]);
 
-        // Add a filter/obstacle
-        const blocker = Bodies.rectangle(400, 100, 300, 1, {
-            isStatic: true,
-            angle: Math.PI * -0.3,
-            collisionFilter: {
-                mask: collissionMask("box_blocked")
-            }
-        });
-        World.add(engine.world, blocker);
-
         // Add a sensor
-        const addBox = (world, x, y, width, height, opts) => {
+        const addBox = (x, y, width, height, opts) => {
             const options = {
                 isStatic: true,
                 render: {
@@ -89,7 +84,7 @@ class Scene extends React.Component {
                 Bodies.rectangle(x + (width / 2), y, 1, height, options)
             ]);
 
-            var sensor = Bodies.rectangle(x, y, width - 60, height - 60, {
+            var sensor = Bodies.rectangle(x, y, width - 50, height - 50, {
                 isSensor: true,
                 isStatic: true,
                 render: {
@@ -100,11 +95,6 @@ class Scene extends React.Component {
             World.add(world, sensor);
             return sensor;
         }
-        var collider = addBox(engine.world, 400, 250, 300, 100, {
-            collisionFilter: {
-                mask: collissionMask("box_blocked")
-            }
-        });
 
         const enterBox = (box_name, body) => {
             const ballState = this.state.balls[body.label];
@@ -119,37 +109,73 @@ class Scene extends React.Component {
                     }
                 }
             });
+        };
 
-            var forceMagnitude = 2 * body.mass;
+        const collider = addBox(scale.x * 600, 150, scale.x * 300, 100, {
+            collisionFilter: {
+                mask: collissionMask("box_blocked")
+            }
+        });
 
-            Body.applyForce(body, body.position, { 
-                x: (forceMagnitude + Common.random() * forceMagnitude) * Common.choose([1, -1]), 
+        const explode = (body) => {
+            if (body.isStatic) {
+                return;
+            }
+
+            const ballState = this.state.balls[body.label];
+            if (ballState === undefined) {
+                return;
+            }
+
+            if (!ballState.boxed) {
+                return;
+            }
+
+            const forceMagnitude = 0.01 * body.mass;
+
+            Body.applyForce(body, body.position, {
+                x: (forceMagnitude + Common.random() * forceMagnitude) * Common.choose([1, -1]),
                 y: -forceMagnitude + Common.random() * -forceMagnitude
             });
-        };
+        }
+
+        var counter = 0;
+        Events.on(engine, 'afterUpdate', function(event) {
+            counter += 1;
+            // every 0.5 sec
+            if (counter >= 60 * 0.5) {
+                // create some random forces
+                const bodies = Composite.allBodies(engine.world);
+
+                for (var i = 0; i < bodies.length; i++) {
+                    explode(bodies[i]);
+                }
+
+                // reset counter
+                counter = 0;
+            }
+        });
 
         Events.on(engine, 'collisionStart', function(event) {
             var pairs = event.pairs;
 
             for (var i = 0, j = pairs.length; i != j; ++i) {
                 var pair = pairs[i];
-    
+
                 if (pair.bodyA === collider) {
                     enterBox("collider", pair.bodyB);
-                    pair.bodyB.render.fillStyle = ballColors['red'];
                 } else if (pair.bodyB === collider) {
                     enterBox("collider", pair.bodyA);
-                    pair.bodyA.render.fillStyle = ballColors['red'];
                 }
             }
         });
 
         Events.on(engine, 'collisionEnd', function(event) {
             var pairs = event.pairs;
-            
+
             for (var i = 0, j = pairs.length; i != j; ++i) {
                 var pair = pairs[i];
-    
+
                 if (pair.bodyA === collider) {
                     pair.bodyB.render.fillStyle = ballColors['green'];
                 } else if (pair.bodyB === collider) {
@@ -170,9 +196,9 @@ class Scene extends React.Component {
             }
         });
         Matter.World.add(engine.world, mouseConstraint);
-    
+
         Matter.Engine.run(engine);
-    
+
         Matter.Render.run(render);
 
         this.setState({
@@ -182,11 +208,11 @@ class Scene extends React.Component {
 
     addBall(ball) {
         const body = Bodies.circle(210, 100, 20, {
-            frictionAir: 0, 
+            frictionAir: 0,
             friction: 0.0001,
             restitution: 0.8,
+            density: 0.000001,
             label: ball.id,
-            // density: 0.001,
             render: {
                 fillStyle: ballColors[ball.color],
                 lineWidth: 1
