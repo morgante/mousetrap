@@ -35,7 +35,7 @@ function collisionCategory(ball, ballState) {
             if (ballState.boxed) {
                 return ballStages["box_exit"];
             } else {
-                return ballStages["box_blocked"];
+                return ballStages["box_enter"];
             }
         default:
             return ballStages["default"];
