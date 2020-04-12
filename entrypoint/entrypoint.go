@@ -51,7 +51,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	message := &EventMessage{
 		Session: b.Session,
 		Data: EventData{
-			Event: "entrypoint_start",
+			Event: "entrypoint_finish",
 			Ball:  b,
 		},
 	}

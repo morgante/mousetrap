@@ -1,21 +1,24 @@
 import React from "react";
 import socketIOClient from "socket.io-client";
+import { v4 as uuid } from 'uuid';
 
 import Start from "./start";
 
 // const SOCKET_ENDPOINT = "http://localhost:8080";
 const SOCKET_ENDPOINT = "https://clf-sbx-mousetrap.uk.r.appspot.com";
+const ENTRY_ENDPOINT = "https://entrypoint-otjmhzo3da-uk.a.run.app";
 
 class Mousetrap extends React.Component {
     state = {
-        session: ''
+        session: '',
+        balls: []
     }
 
     constructor(props) {
         super(props);
         this.socket = socketIOClient(SOCKET_ENDPOINT);
 
-        this.state.session = 'cool-sess';
+        this.state.session = uuid();
 
         this.socket.on('connect', (evt) => {
             this.socket.emit('start-session', this.state.session);
@@ -27,14 +30,32 @@ class Mousetrap extends React.Component {
 
     componentDidMount() {
         this.socket.on("datum", data => {
-            console.log("chat", data);
+            console.log("received", data);
         });
     }
 
     start(e) {
         e.preventDefault();
+
+        const ball = {
+            id: uuid(),
+            color: 'green'
+        }
+
         console.log("I have started");
-        this.socket.emit('datum', 'start plz');
+
+        fetch(ENTRY_ENDPOINT, {
+            method: 'POST',
+            mode: 'no-cors',
+            credentials: 'omit',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                session: this.state.session,
+                ...ball
+            })
+        });
     }
 
     render () {
