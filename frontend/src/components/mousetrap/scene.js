@@ -9,17 +9,17 @@ const ballColors = {
 };
 export const BALL_COLORS = _.keys(ballColors);
 
-const collisionCategories = {
-    default: "0x0001",
-    green: "0x0002",
-    red: "0x0004"
+const ballStages = {
+    default: 0x0001,
+    entrypoint_wait: 0x0002,
+    entrypoint_start: 0x0004,
 };
-
-// // define our categories (as bit fields, there are up to 32 available)
-// var defaultCategory = 0x0001,
-//     redCategory = 0x0002,
-//     greenCategory = 0x0004,
-//     blueCategory = 0x0008;
+function collissionMask(stage) {
+    return ballStages["default"] | ballStages[stage];
+}
+function collisionCategory(stage) {
+    return ballStages[stage];
+}
 
 class Scene extends React.Component {
     state = {
@@ -52,8 +52,7 @@ class Scene extends React.Component {
             isStatic: true,
             angle: Math.PI * -0.3,
             collisionFilter: {
-                // category: collisionCategories["green"]
-                mask: collisionCategories["green"]
+                mask: collissionMask("entrypoint_wait")
             }
         });
 
@@ -81,32 +80,59 @@ class Scene extends React.Component {
         });
     }
 
-    componentDidUpdate() {
-        console.log("updated", this.props.balls);
+    addBall(ball) {
+        const body = Bodies.circle(210, 100, 30, {
+            friction: 0.00001,
+            restitution: 0.5,
+            density: 0.001,
+            render: {
+                fillStyle: ballColors[ball.color],
+                lineWidth: 1
+            },
+            collisionFilter: {
+                category: collisionCategory(ball.stage)
+            }
+        });
 
-        _.each(this.props.balls, (ball) => {
-            if (this.state.balls[ball.id] === undefined) {
-                const body = Bodies.circle(210, 100, 30, {
-                    friction: 0.00001,
-                    restitution: 0.5,
-                    density: 0.001,
-                    render: {
-                        fillStyle: ballColors[ball.color],
-                        lineWidth: 1
-                    },
-                    collisionFilter: {
-                        category: collisionCategories[ball.color]
-                        // mask: collisionCategories["default"] | collisionCategories[ball.color]
-                    }
-                });
-                console.log("add body", body);
-                this.state.balls[ball.id] = {
+        this.setState({
+            balls: {
+                ...this.state.balls,
+                [ball.id]: {
                     ball: ball,
                     body: body
-                };
-
-                Matter.World.add(this.state.render.engine.world, body);
+                }
             }
+        });
+
+        Matter.World.add(this.state.render.engine.world, body);
+    }
+
+    componentDidUpdate() {
+        _.each(this.props.balls, (ball) => {
+            if (this.state.balls[ball.id] === undefined) {
+                this.addBall(ball);
+            } else {
+                const body = this.state.balls[ball.id].body;
+
+                if (ball.stage === "entrypoint_start") {
+                    body.render.fillStyle = '#333333';
+                    body.collisionFilter.category = collisionCategory(ball.stage);
+                    // Matter.Body.set(body, {
+                    //     // collisionFilter: {
+                    //     //     // mask: ballCollisionFilter(ball)
+                    //     // },
+                    //     render: {
+                    //         fillStyle: '#D44D58'
+                    //     }
+                    // });
+                }
+                console.log("update ball", ball, body, ballStages[ball.stage], ballStages["default"] | ballStages[ball.stage]);
+            }
+            // this.state.balls[ball.id]
+
+            // Matter.Body.set()
+
+            // this.state
         });
     }
 

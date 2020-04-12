@@ -13,7 +13,7 @@ const ENTRY_ENDPOINT = "https://entrypoint-otjmhzo3da-uk.a.run.app";
 class Mousetrap extends React.Component {
     state = {
         session: '',
-        balls: []
+        balls: {}
     }
 
     constructor(props) {
@@ -41,12 +41,28 @@ class Mousetrap extends React.Component {
 
         const ball = {
             id: uuid(),
-            color: _.sample(BALL_COLORS)
+            color: _.sample(BALL_COLORS),
+            stage: "entrypoint_wait"
         };
 
         this.setState({
-            balls: [...this.state.balls, ball]
+            balls: {
+                ...this.state.balls,
+                [ball.id]: ball
+            }
         });
+
+        setTimeout(() => {
+            this.setState({
+                balls: {
+                    ...this.state.balls,
+                    [ball.id]: {
+                        ...this.state.balls[ball.id],
+                        stage: "entrypoint_start",
+                    },
+                }
+            });
+        }, 3000);
 
         fetch(ENTRY_ENDPOINT, {
             method: 'POST',
@@ -60,8 +76,6 @@ class Mousetrap extends React.Component {
                 ...ball
             })
         });
-
-        console.log("balls", this.state.balls);
     }
 
     render () {
