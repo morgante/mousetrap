@@ -34,6 +34,20 @@ type EventMessage struct {
 	Data    EventData `json:"data"`
 }
 
+func sendEvent(message *EventMessage) (encoded []byte, err error) {
+	data, err := json.Marshal(message)
+	if err != nil {
+		return nil, err
+	}
+
+	t := pubsubClient.Topic(pubsubStateTopic)
+	t.Publish(context.Background(), &pubsub.Message{
+		Data: data,
+	})
+
+	return data, nil
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Print("Entrypoint received a request.")
 
@@ -48,30 +62,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message := &EventMessage{
+	startData, err := sendEvent(&EventMessage{
 		Session: b.Session,
 		Data: EventData{
 			Event: "entrypoint_finish",
 			Ball:  b,
 		},
-	}
-
-	data, err := json.Marshal(message)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	fmt.Fprintf(w, "Message %s!\n", data)
-
-	t := pubsubClient.Topic(pubsubStateTopic)
-	result := t.Publish(context.Background(), &pubsub.Message{
-		Data: data,
 	})
 
-	log.Printf("Result: %v", result)
-
-	fmt.Fprintf(w, "Started!\n")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(startData)
 }
 
 func main() {
