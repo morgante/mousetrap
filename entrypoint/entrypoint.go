@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"cloud.google.com/go/pubsub"
 )
@@ -14,6 +15,7 @@ import (
 // Global API clients used across function invocations.
 var (
 	pubsubClient *pubsub.Client
+	jobs         chan Ball
 )
 
 const pubsubStateTopic = "ball-state"
@@ -48,6 +50,26 @@ func sendEvent(message *EventMessage) (encoded []byte, err error) {
 	return data, nil
 }
 
+func worker(jobs <-chan Ball) {
+	fmt.Println("Register the worker")
+
+	for b := range jobs {
+		msg, err := sendEvent(&EventMessage{
+			Session: b.Session,
+			Data: EventData{
+				Event: "entrypoint_done",
+				Ball:  b,
+			},
+		})
+		if err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+		fmt.Printf("Processing %v\n", b)
+		fmt.Printf("Sent %s\n", msg)
+	}
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Print("Entrypoint received a request.")
 
@@ -65,10 +87,18 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	startData, err := sendEvent(&EventMessage{
 		Session: b.Session,
 		Data: EventData{
-			Event: "entrypoint_finish",
+			Event: "entrypoint_start",
 			Ball:  b,
 		},
 	})
+
+	fmt.Printf("Start timer for %v\n", b)
+	ballTimer := time.NewTimer(time.Second * 2)
+	go func() {
+		<-ballTimer.C
+		fmt.Printf("Timer fired for %v\n", b)
+		jobs <- b
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -90,6 +120,10 @@ func main() {
 	if initErr != nil {
 		log.Fatalf("Failed to create client: %v", initErr)
 	}
+
+	// Create the jobs worker
+	jobs = make(chan Ball, 100)
+	go worker(jobs)
 
 	// Start HTTP server
 	http.HandleFunc("/", handler)
