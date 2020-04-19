@@ -1,19 +1,22 @@
 import React from "react";
 import socketIOClient from "socket.io-client";
 import { v4 as uuid } from 'uuid';
-import _ from 'lodash'
+import _ from 'lodash';
+import update from 'immutability-helper';
 
 import Start from "./start";
 import Scene, { BALL_COLORS } from "./scene";
 
 // const SOCKET_ENDPOINT = "http://localhost:8080";
 const SOCKET_ENDPOINT = "https://clf-sbx-mousetrap.uk.r.appspot.com";
-const ENTRY_ENDPOINT = "https://entrypoint-otjmhzo3da-uk.a.run.app";
+const ENTRY_ENDPOINT = "http://localhost:8080";
+// const ENTRY_ENDPOINT = "https://entrypoint-otjmhzo3da-uk.a.run.app";
 
 class Mousetrap extends React.Component {
     state = {
         session: '',
-        balls: {}
+        balls: {},
+        events: []
     }
 
     constructor(props) {
@@ -23,6 +26,7 @@ class Mousetrap extends React.Component {
         this.state.session = uuid();
 
         this.socket.on('connect', (evt) => {
+            console.log("socket connected");
             this.socket.emit('start-session', this.state.session);
         });
 
@@ -32,7 +36,10 @@ class Mousetrap extends React.Component {
 
     componentDidMount() {
         this.socket.on("datum", data => {
-            console.log("received", data);
+            console.log("received event");
+            this.setState(update(this.state, {
+                events: {$push: [data]}
+            }));
         });
     }
 
@@ -78,7 +85,7 @@ class Mousetrap extends React.Component {
 
         fetch(ENTRY_ENDPOINT, {
             method: 'POST',
-            mode: 'no-cors',
+            mode: 'cors',
             credentials: 'omit',
             headers: {
                 'Content-Type': 'application/json'
@@ -87,6 +94,10 @@ class Mousetrap extends React.Component {
                 session: this.state.session,
                 ...ball
             })
+        }).then((response) => {
+            return response.json();
+        }).then((data) => {
+            console.log("Response from entrypoint", data);
         });
     }
 
