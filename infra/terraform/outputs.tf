@@ -5,3 +5,7 @@ output "terraform_bucket" {
 output "service_accounts" {
   value = module.service_accounts.emails
 }
+
+output "buckets" {
+  value = module.gcs_buckets.names
+}

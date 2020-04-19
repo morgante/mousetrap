@@ -7,15 +7,19 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/storage"
 )
 
 // Global API clients used across function invocations.
 var (
-	pubsubClient *pubsub.Client
-	jobs         chan Ball
+	pubsubClient  *pubsub.Client
+	storageClient *storage.Client
+	bucketName    string
+	jobs          chan Ball
 )
 
 const pubsubStateTopic = "ball-state"
@@ -50,10 +54,41 @@ func sendEvent(message *EventMessage) (encoded []byte, err error) {
 	return data, nil
 }
 
-func worker(jobs <-chan Ball) {
+func writeBall(b *Ball) error {
+	data, err := json.Marshal(b)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	defer cancel()
+
+	objectName := path.Join("balls", b.ID+".json")
+
+	wc := storageClient.Bucket(bucketName).Object(objectName).NewWriter(ctx)
+	if _, err = wc.Write(data); err != nil {
+		return err
+	}
+
+	if err := wc.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func worker(balls <-chan Ball) {
 	fmt.Println("Register the worker")
 
-	for b := range jobs {
+	for b := range balls {
+		fmt.Printf("Processing %v\n", b)
+
+		err := writeBall(&b)
+		if err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+
 		msg, err := sendEvent(&EventMessage{
 			Session: b.Session,
 			Data: EventData{
@@ -65,7 +100,6 @@ func worker(jobs <-chan Ball) {
 			fmt.Println(err.Error())
 			continue
 		}
-		fmt.Printf("Processing %v\n", b)
 		fmt.Printf("Sent %s\n", msg)
 	}
 }
@@ -100,13 +134,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	fmt.Printf("Start timer for %v\n", b)
-	ballTimer := time.NewTimer(time.Second * 2)
-	go func() {
-		<-ballTimer.C
-		fmt.Printf("Timer fired for %v\n", b)
-		jobs <- b
-	}()
+	fmt.Printf("Start upload for %v\n", b)
+	jobs <- b
+	// ballTimer := time.NewTimer(time.Second * 2)
+	// go func() {
+	// 	<-ballTimer.C
+	// 	fmt.Printf("Timer fired for %v\n", b)
+	// 	jobs <- b
+	// }()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -121,12 +156,18 @@ func main() {
 
 	// Sets your Google Cloud Platform project ID.
 	projectID := "clf-sbx-mousetrap"
+	bucketName = "mousetrap-us-gateway"
 
-	// Creates a client.
+	// Creates a pubsub client.
 	ctx := context.Background()
 	pubsubClient, initErr = pubsub.NewClient(ctx, projectID)
 	if initErr != nil {
-		log.Fatalf("Failed to create client: %v", initErr)
+		log.Fatalf("Failed to create pubsub client: %v", initErr)
+	}
+
+	storageClient, initErr = storage.NewClient(ctx)
+	if initErr != nil {
+		log.Fatalf("Failed to create storage client: %v", initErr)
 	}
 
 	// Create the jobs worker
