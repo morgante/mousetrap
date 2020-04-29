@@ -30,10 +30,9 @@ io.on('connection', (socket) => {
     console.log('joining', session);
     socket.join(session);
   });
-  // socket.on('datum', (data) => {
-  //   io.emit('datum', data);
-  //   io.to(`cool-sess`).emit('datum', 'cool session');
-  // });
+  socket.on('datum', (data) => {
+    io.emit('datum', data);
+  });
 });
 
 function extractEvent(message) {

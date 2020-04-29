@@ -8,7 +8,13 @@ module "gcs_buckets" {
   prefix          = "mousetrap"
   location        = "US"
   set_admin_roles = false
-  pubsub_topics   = {
+
+  pubsub_topics = {
     gateway = "projects/${module.project-factory.project_id}/topics/${module.pubsub.topic}"
+  }
+
+  set_creator_roles = true
+  bucket_creators = {
+    gateway = "serviceAccount:${module.service_accounts.emails["entrypoint"]}"
   }
 }

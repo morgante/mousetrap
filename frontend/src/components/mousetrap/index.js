@@ -9,8 +9,8 @@ import Scene, { BALL_COLORS } from "./scene";
 
 // const SOCKET_ENDPOINT = "http://localhost:8080";
 const SOCKET_ENDPOINT = "https://clf-sbx-mousetrap.uk.r.appspot.com";
-const ENTRY_ENDPOINT = "http://localhost:8080";
-// const ENTRY_ENDPOINT = "https://entrypoint-otjmhzo3da-uk.a.run.app";
+// const ENTRY_ENDPOINT = "http://localhost:8080";
+const ENTRY_ENDPOINT = "https://entrypoint-otjmhzo3da-uk.a.run.app";
 
 class Mousetrap extends React.Component {
     state = {

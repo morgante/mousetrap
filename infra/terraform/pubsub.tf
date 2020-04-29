@@ -5,14 +5,6 @@ module "pubsub" {
   topic      = "ball-state"
   project_id = module.project-factory.project_id
 
-  #   push_subscriptions = [
-  #     {
-  #       name                 = "push"   // required
-  #       ack_deadline_seconds = 20 // optional
-  #       push_endpoint        = "https://example.com" // required
-  #       x-goog-version       = "v1beta1" // optional
-  #     }
-  #   ]
   pull_subscriptions = [
     {
       name                 = "debug" // required
@@ -27,14 +19,6 @@ module "pubsub" {
     }
   ]
 }
-
-#  gcloud beta pubsub subscriptions create <your-subscription-name> \
-#    --topic <your-topic-name> \
-#    --push-endpoint \
-#      https://<your-project-id>.appspot.com/pubsub/authenticated-push?token=<your-verification-token> \
-#    --ack-deadline 30 \
-#    --push-auth-service-account=[your-service-account-email] \
-#    --push-auth-token-audience=example.com
 
 module "pubsub-iam" {
   source  = "terraform-google-modules/iam/google//modules/pubsub_topics_iam"
