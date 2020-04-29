@@ -79,75 +79,85 @@ class Scene extends React.Component {
                 },
                 // ...opts
             };
-            const boxes = {
-                sensor: Bodies.rectangle(x, y, width - 50, height - 50, {
-                    isSensor: true,
-                    isStatic: true,
-                    render: {
-                        lineWidth: 1
-                    }
-                }),
-                top: Bodies.rectangle(x, y - (height / 2), width, 1, options),
-                bottom: Bodies.rectangle(x, y + (height / 2), width, 1, options),
-                left: Bodies.rectangle(x - (width / 2), y, 1, height, options),
-                right: Bodies.rectangle(x + (width / 2), y, 1, height, options)
-            };
-
-            World.add(world, _.values(boxes));
-
-            var boxBody = Body.create({
-                parts: _.values(boxes),
-                collisionFilter: {
-                    mask: ballStages["default"]
+            const dimensions = {
+                top: [0, height / -2, width, 1],
+                bottom: [0, height / 2, width, 1],
+                left: [width / -2, 0, 1, height],
+                right: [width / 2, 0, 1, height]
+            }
+            const boxes = _.mapValues(dimensions, (coordinates) => {
+                return Bodies.rectangle(x + coordinates[0], y + coordinates[1], coordinates[2], coordinates[3], {
+                    ...options
+                })
+            });
+            boxes.sensor = Bodies.rectangle(x, y, width - 50, height - 50, {
+                isSensor: true,
+                isStatic: true,
+                render: {
+                    lineWidth: 1
                 }
             });
 
-            // Matter.Composites.mesh(composite, columns, rows, crossBrace, options)
+            // add composite box
+            var boxBody = Body.create({
+                parts: _.values(boxes),
+                collisionFilter: {
+                    group: -10,
+                    mask: ballStages["default"]
+                }
+            });
+            World.add(world, boxBody);
 
-            const makeVertice = (info) => {
-                return Constraint.create({
-                    length: 0,
-                    stiffness: 1,
-                    ...info
+            const addEdge = (coordinates) => {
+                const edge = Bodies.rectangle(x + coordinates[0], y + coordinates[1], coordinates[2], coordinates[3], {
+                    ...options,
+                    isStatic: false,
+                    collisionFilter: {
+                        group: -10
+                    },
+                    render: {
+                        strokeStyle: ballColors['red'],
+                        lineWidth: 10
+                    }
                 });
+                World.add(world, edge);
+
+                World.add(world, [
+                    Constraint.create({
+                        length: 0,
+                        stiffness: 1,
+                        bodyA: boxBody,
+                        pointA: { x: coordinates[0] + coordinates[2] / -2, y: coordinates[1] + coordinates[3] / -2 },
+                        bodyB: edge,
+                        pointB: { x: coordinates[2] / 2, y: coordinates[3] / -2 }
+                    }),
+                    Constraint.create({
+                        length: 0,
+                        stiffness: 1,
+                        bodyA: boxBody,
+                        pointA: { x: coordinates[0] + coordinates[2] / 2, y: coordinates[1] + coordinates[3] / 2 },
+                        bodyB: edge,
+                        pointB: { x: coordinates[2] / -2, y: coordinates[3] / 2 }
+                    }),
+                ]);
             };
+            addEdge(dimensions.bottom);
+            addEdge(dimensions.top);
+            addEdge(dimensions.right);
+
             const constraints = [
-                makeVertice({
-                    bodyA: boxes.top,
-                    pointA: { x: width / -2, y: 0 },
-                    bodyB: boxes.left,
-                    pointB: { x: 0, y: height / -2 }
-                }),
-                makeVertice({
-                    bodyA: boxes.bottom,
-                    pointA: { x: width / -2, y: 0 },
-                    bodyB: boxes.left,
-                    pointB: { x: 0, y: height / 2 }
-                }),
-                makeVertice({
-                    bodyA: boxes.bottom,
-                    pointA: { x: width / 2, y: 0 },
-                    bodyB: boxes.right,
-                    pointB: { x: 0, y: height / 2 }
-                }),
-                makeVertice({
-                    bodyA: boxes.top,
-                    pointA: { x: width / 2, y: 0 },
-                    bodyB: boxes.right,
-                    pointB: { x: 0, y: height / -2 }
-                }),
-                // Attach sensor to box
-                Constraint.create({
-                    bodyA: boxes.top,
-                    bodyB: boxes.sensor,
-                    length: 0,
-                    stiffness: 1
-                }),
+                // // Attach sensor to box
+                // Constraint.create({
+                //     bodyA: boxes.top,
+                //     bodyB: boxes.sensor,
+                //     length: 0,
+                //     stiffness: 1
+                // }),
                 // fix box in place
                 Constraint.create({
                     pointA: { x: x, y: y },
-                    bodyB: boxes.top,
-                    pointB: { x: 0, y: height / 2 },
+                    bodyB: boxBody,
+                    pointB: { x: 0, y: 0 },
                     length: 10,
                     stiffness: 0.3
                 })
@@ -157,7 +167,7 @@ class Scene extends React.Component {
             // World.add(world, [boxBody, constraint]);
 
             return {
-                // body: boxBody,
+                body: boxBody,
                 // left:
                 width,
                 height,
@@ -218,7 +228,7 @@ class Scene extends React.Component {
                     x: 25,
                     y: 0
                 },
-                bodyB: box.left,
+                bodyB: box.body,
                 pointB: boxPoint
             });
             World.add(world, constraint);
@@ -227,12 +237,12 @@ class Scene extends React.Component {
         const attachPipe = (pipe, box) => {
             attachRope(pipe.top, box, {
                 x: 0,
-                // x: -1 * (box.width / 2),
+                x: -1 * (box.width / 2),
                 y: -1 * (box.height / 2)
             });
             attachRope(pipe.bottom, box, {
                 x: 0,
-                // x: -1 * (box.width / 2),
+                x: -1 * (box.width / 2),
                 y: 1 * (box.height / 2)
             });
         };
@@ -261,16 +271,12 @@ class Scene extends React.Component {
         // ]);
 
         // Add the first box
-        const entrypointBox = addBox(scale.x * 600, 150, scale.x * 300, 100, {
-            collisionFilter: {
-                mask: ballStages["default"] | ballStages["box_blocked"] | ballStages["box_exit"]
-            }
-        });
+        const entrypointBox = addBox(scale.x * 600, 150, scale.x * 300, 100, {});
 
-        // attachPipe(pipes[0], entrypointBox);
+        attachPipe(pipes[0], entrypointBox);
 
         // Allow exiting bottom of first box
-        entrypointBox.bottom.collisionFilter.mask = ballStages["default"] | ballStages["box_blocked"];
+        // entrypointBox.bottom.collisionFilter.mask = ballStages["default"] | ballStages["box_blocked"];
 
         // Events.on(engine, 'collisionStart', function(event) {
         //     _.each(event.pairs, (pair) => {
