@@ -77,7 +77,6 @@ class Scene extends React.Component {
                     strokeStyle: ballColors['red'],
                     lineWidth: 1
                 },
-                // ...opts
             };
             const dimensions = {
                 top: [0, height / -2, width, 1],
@@ -90,17 +89,18 @@ class Scene extends React.Component {
                     ...options
                 })
             });
-            boxes.sensor = Bodies.rectangle(x, y, width - 50, height - 50, {
-                isSensor: true,
-                isStatic: true,
-                render: {
-                    lineWidth: 1
-                }
-            });
+            // boxes.sensor = Bodies.rectangle(x, y, width - 50, height - 50, {
+            //     isSensor: true,
+            //     isStatic: true,
+            //     render: {
+            //         lineWidth: 1
+            //     }
+            // });
 
             // add composite box
             var boxBody = Body.create({
                 parts: _.values(boxes),
+                isStatic: true,
                 collisionFilter: {
                     group: -10,
                     mask: ballStages["default"]
@@ -111,7 +111,7 @@ class Scene extends React.Component {
             const addEdge = (coordinates) => {
                 const edge = Bodies.rectangle(x + coordinates[0], y + coordinates[1], coordinates[2], coordinates[3], {
                     ...options,
-                    isStatic: false,
+                    isStatic: true,
                     collisionFilter: {
                         group: -10
                     },
@@ -141,9 +141,9 @@ class Scene extends React.Component {
                     }),
                 ]);
             };
-            addEdge(dimensions.bottom);
-            addEdge(dimensions.top);
-            addEdge(dimensions.right);
+            _.each(opts.edges, (edge) => {
+                addEdge(dimensions[edge]);
+            });
 
             const constraints = [
                 // // Attach sensor to box
@@ -175,159 +175,86 @@ class Scene extends React.Component {
             };
         }
 
-        const addRope = (x, y, length) => {
+        const addRope = (length) => {
             const num = length;
             var rope = Composites.stack(100, 50, num, 1, 10, 10, (x, y) => {
                 return Bodies.rectangle(x, y, 50, 20, {
-                    // isStatic: true,
+                    collisionFilter: {
+                        group: -10
+                    },
                 });
             });
 
             Composites.chain(rope, 0.5, 0, -0.5, 0, {
-                stiffness: 1, length: 0, render: { type: 'line' }
+                stiffness: 0.3, length: 1, render: { type: 'line' }
             });
 
-            const constraint = Constraint.create({
-                pointA: { x: x, y: y },
-                bodyB: rope.bodies[0],
-                pointB: { x: -25, y: 0 },
-                length: 0,
-                stiffness: 1
-            });
+            // const constraint = Constraint.create({
+            //     pointA: { x: x, y: y },
+            //     bodyB: rope.bodies[0],
+            //     pointB: { x: -25, y: 0 },
+            //     length: 0,
+            //     stiffness: 1
+            // });
 
-            World.add(world, [rope, constraint]);
-
-            return rope;
-        }
-
-        const addPipe = (x, y, length, width) => {
-            const ropeA = addRope(x + width, y, length - 3);
-            const ropeB = addRope(x, y, length);
+            World.add(world, rope);
 
             return {
-                top: {
-                    start: ropeA.bodies[0],
-                    end: ropeA.bodies[ropeA.bodies.length - 1],
-                },
-                bottom: {
-                    start: ropeB.bodies[0],
-                    end: ropeB.bodies[ropeB.bodies.length - 1]
-                },
-                offset: {
-                    x: 25,
-                    y: 0
-                }
-            }
-        };
+                rope: rope,
+                start: rope.bodies[0],
+                end: rope.bodies[rope.bodies.length - 1]
+            };
+        }
 
-        const attachRope = (rope, box, boxPoint) => {
+        const attachRope = (rope, side, box, vertex) => {
+            const points = {
+                bottomleft: { x: -1 * (box.width / 2), y: 1 * (box.height / 2)},
+                bottomright: { x: 1 * (box.width / 2), y: 1 * (box.height / 2)},
+                topleft: { x: -1 * (box.width / 2), y: -1 * (box.height / 2)},
+                topright: { x: 1 * (box.width / 2), y: -1 * (box.height / 2)}
+            };
+
+            const ropePoints = {
+                start: {x: -25, y: 0},
+                end: {x: 25, y: 0}
+            };
+
+            const boxPoint = points[vertex];
+
             const constraint = Constraint.create({
                 length: 0,
-                bodyA: rope.end,
-                pointA: {
-                    x: 25,
-                    y: 0
-                },
+                bodyA: rope[side],
+                pointA: ropePoints[side],
                 bodyB: box.body,
                 pointB: boxPoint
             });
             World.add(world, constraint);
         };
 
-        const attachPipe = (pipe, box) => {
-            attachRope(pipe.top, box, {
-                x: 0,
-                x: -1 * (box.width / 2),
-                y: -1 * (box.height / 2)
-            });
-            attachRope(pipe.bottom, box, {
-                x: 0,
-                x: -1 * (box.width / 2),
-                y: 1 * (box.height / 2)
-            });
+        const connectBoxes = (boxA, vertexA, boxB, vertexB, length) => {
+            const rope = addRope(length);
+
+            attachRope(rope, 'start', boxA, vertexA);
+            attachRope(rope, 'end', boxB, vertexB);
+        }
+
+        // Add the boxes
+        const boxes = {
+            start: addBox(scale.x * 200, 100, scale.x * 300, 100, {
+                edges: ['top', 'left', 'right']
+            }),
+            entrypoint: addBox(scale.x * 600, 300, scale.x * 300, 100, {
+                edges: ['top', 'right']
+            }),
+            gcs: addBox(scale.x * 200, 500, scale.x * 300, 100, {
+                edges: ['top', 'left', 'bottom']
+            })
         };
 
-        const boxDoor = (isBoxed) => (box_name, body) => {
-            console.log("enter/exit bot", isBoxed, body);
-            const ballState = this.state.balls[body.label];
-            this.setState(update(this.state, {
-                balls: {
-                    [ballState.ball]: {
-                        boxed: {$set: isBoxed}
-                    }
-                }
-            }));
-        };
-        const enterBox = boxDoor(true);
-        const exitBox = boxDoor(false);
-
-        const pipes = [addPipe(100, 50, 8, 100)];
-
-        // old avalanche
-        // World.add(engine.world, [
-        //     Bodies.rectangle(scale.x * 200, 150, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
-        //     Bodies.rectangle(scale.x * 600, 350, scale.x * 500, 20, { isStatic: true, angle: -Math.PI * 0.06 }),
-        //     Bodies.rectangle(scale.x * 200, 480, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
-        // ]);
-
-        // Add the first box
-        const entrypointBox = addBox(scale.x * 600, 150, scale.x * 300, 100, {});
-
-        attachPipe(pipes[0], entrypointBox);
-
-        // Allow exiting bottom of first box
-        // entrypointBox.bottom.collisionFilter.mask = ballStages["default"] | ballStages["box_blocked"];
-
-        // Events.on(engine, 'collisionStart', function(event) {
-        //     _.each(event.pairs, (pair) => {
-        //         if (pair.bodyA === entrypointBox.sensor) {
-        //             enterBox("collider", pair.bodyB);
-        //         } else if (pair.bodyB === entrypointBox.sensor) {
-        //             enterBox("collider", pair.bodyA);
-        //         }
-        //     });
-        // });
-
-        // Events.on(engine, 'collisionEnd', function(event) {
-        //     _.each(event.pairs, (pair) => {
-        //         if (pair.bodyA === entrypointBox.sensor) {
-        //             exitBox("collider", pair.bodyB);
-        //         } else if (pair.bodyB === entrypointBox.sensor) {
-        //             exitBox("collider", pair.bodyA);
-        //         }
-        //     });
-        // });
-
-        // const explode = (body) => {
-        //     const ballState = this.state.balls[body.label];
-        //     if (body.isStatic || ballState === undefined || !ballState.boxed) {
-        //         return;
-        //     }
-
-        //     const forceMagnitude = 0.01 * body.mass;
-
-        //     Body.applyForce(body, body.position, {
-        //         x: (forceMagnitude + Common.random() * forceMagnitude) * Common.choose([1, -1]),
-        //         y: -forceMagnitude + Common.random() * -forceMagnitude
-        //     });
-        // }
-
-        // var counter = 0;
-        // Events.on(engine, 'afterUpdate', function(event) {
-        //     counter += 1;
-        //     // every 0.5 sec
-        //     if (counter >= 60 * 0.5) {
-        //         // create some random forces
-        //         const bodies = Composite.allBodies(engine.world);
-
-        //         for (var i = 0; i < bodies.length; i++) {
-        //             explode(bodies[i]);
-        //         }
-
-        //         // reset counter
-        //         counter = 0;
-        //     }
-        // });
+        connectBoxes(boxes.start, 'bottomleft', boxes.entrypoint, 'bottomleft', 9);
+        connectBoxes(boxes.start, 'bottomright', boxes.entrypoint, 'topleft', 3);
+        connectBoxes(boxes.entrypoint, 'bottomleft', boxes.gcs, 'topright', 3);
+        connectBoxes(boxes.entrypoint, 'bottomright', boxes.gcs, 'bottomright', 9);
 
         // add mouse control
         var mouse = Matter.Mouse.create(render.canvas);
@@ -353,9 +280,9 @@ class Scene extends React.Component {
 
     addBall(ball) {
         const body = Bodies.circle(210, 100, 20, {
-            frictionAir: 0,
-            friction: 0.0001,
-            restitution: 0.8,
+            // frictionAir: 0,
+            // friction: 0.0001,
+            // restitution: 0.3,
             label: ball.id,
             render: {
                 fillStyle: ballColors[ball.color],
