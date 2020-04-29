@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import React from "react";
-import Matter, { Body, Bodies, Composite, Events, World, Common, Constraint } from "matter-js";
+import Matter, { Body, Bodies, Composite, Composites, Events, World, Common, Constraint } from "matter-js";
 import _ from 'lodash';
 import update from 'immutability-helper';
 
@@ -51,7 +51,7 @@ class Scene extends React.Component {
         const engine = Matter.Engine.create({});
         const world = engine.world;
 
-        world.gravity.y = 0;
+        // world.gravity.y = 0;
 
         const scale = {
             x: 1,
@@ -72,7 +72,7 @@ class Scene extends React.Component {
         // Add a sensor
         const addBox = (x, y, width, height, opts) => {
             const options = {
-                // isStatic: true,
+                isStatic: true,
                 render: {
                     strokeStyle: ballColors['red'],
                     lineWidth: 1
@@ -82,7 +82,7 @@ class Scene extends React.Component {
             const boxes = {
                 sensor: Bodies.rectangle(x, y, width - 50, height - 50, {
                     isSensor: true,
-                    // isStatic: true,
+                    isStatic: true,
                     render: {
                         lineWidth: 1
                     }
@@ -97,7 +97,15 @@ class Scene extends React.Component {
                 parts: _.values(boxes)
             });
 
-            World.add(world, boxBody);
+            const constraint = Constraint.create({
+                pointA: { x: x, y: y },
+                bodyB: boxBody,
+                // pointB: { x: -25, y: 0 },
+                length: 0,
+                stiffness: 0.3
+            });
+
+            World.add(world, [boxBody, constraint]);
 
             return {
                 body: boxBody,
@@ -107,6 +115,78 @@ class Scene extends React.Component {
             };
         }
 
+        const addRope = (x, y, length) => {
+            const num = length;
+            var rope = Composites.stack(100, 50, num, 1, 10, 10, (x, y) => {
+                return Bodies.rectangle(x, y, 50, 20, {
+                    // isStatic: true,
+                });
+            });
+
+            Composites.chain(rope, 0.5, 0, -0.5, 0, {
+                stiffness: 1, length: 0, render: { type: 'line' }
+            });
+
+            const constraint = Constraint.create({
+                pointA: { x: x, y: y },
+                bodyB: rope.bodies[0],
+                pointB: { x: -25, y: 0 },
+                length: 0,
+                stiffness: 1
+            });
+
+            World.add(world, [rope, constraint]);
+
+            return rope;
+        }
+
+        const addPipe = (x, y, length, width) => {
+            const ropeA = addRope(x + width, y, length - 3);
+            const ropeB = addRope(x, y, length);
+
+            return {
+                top: {
+                    start: ropeA.bodies[0],
+                    end: ropeA.bodies[ropeA.bodies.length - 1],
+                },
+                bottom: {
+                    start: ropeB.bodies[0],
+                    end: ropeB.bodies[ropeB.bodies.length - 1]
+                },
+                offset: {
+                    x: 25,
+                    y: 0
+                }
+            }
+        };
+
+        const attachRope = (rope, box, boxPoint) => {
+            const constraint = Constraint.create({
+                length: 0,
+                bodyA: rope.end,
+                pointA: {
+                    x: 25,
+                    y: 0
+                },
+                bodyB: box.body,
+                pointB: boxPoint
+            });
+            World.add(world, constraint);
+        };
+
+        const attachPipe = (pipe, box) => {
+            attachRope(pipe.top, box, {
+                x: -1 * (box.width / 2),
+                y: -1 * (box.height / 2)
+            });
+            attachRope(pipe.bottom, box, {
+                x: -1 * (box.width / 2),
+                y: 1 * (box.height / 2)
+            });
+        };
+
+        const pipes = [addPipe(100, 50, 8, 100)];
+
         // Add the first box
         const entrypointBox = addBox(scale.x * 600, 150, scale.x * 300, 100, {
             collisionFilter: {
@@ -114,33 +194,7 @@ class Scene extends React.Component {
             }
         });
 
-        const boxTwo = addBox(scale.x * 300, 150, scale.x * 300, 100, {
-            // collisionFilter: {
-            //     mask: ballStages["default"] | ballStages["box_blocked"] | ballStages["box_exit"]
-            // }
-        });
-
-        // const pipe = Bodies.rectangle(scale.x * 200, 150, scale.x * 500, 20, {
-        //     isStatic: false,
-        //     angle: Math.PI * 0.06
-        // });
-        // World.add(world, pipe);
-
-        console.log("info", entrypointBox);
-
-        var constraint = Constraint.create({
-            bodyA: boxTwo.body,
-            pointA: {
-                x: 1 * (boxTwo.width / 2),
-                y: 0
-            },
-            bodyB: entrypointBox.body,
-            pointB: {
-                x: -1 * (entrypointBox.width / 2),
-                y: 0
-            }
-        });
-        World.add(world, constraint);
+        attachPipe(pipes[0], entrypointBox);
 
         // var ropeA = Composites.stack(100, 50, 8, 1, 10, 10, function(x, y) {
         //     return Bodies.rectangle(x, y, 50, 20, { collisionFilter: { group: group } });
