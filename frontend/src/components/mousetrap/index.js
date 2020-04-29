@@ -36,7 +36,7 @@ class Mousetrap extends React.Component {
 
     componentDidMount() {
         this.socket.on("datum", data => {
-            console.log("received event");
+            console.log("received event", data);
             this.setState(update(this.state, {
                 events: {$push: [data]}
             }));

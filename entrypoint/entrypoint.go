@@ -64,7 +64,7 @@ func writeBall(b *Ball) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
 
-	objectName := path.Join("balls", b.ID+".json")
+	objectName := path.Join("sessions", b.Session, "balls", b.ID+".json")
 
 	wc := storageClient.Bucket(bucketName).Object(objectName).NewWriter(ctx)
 	if _, err = wc.Write(data); err != nil {

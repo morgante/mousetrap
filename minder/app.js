@@ -30,18 +30,32 @@ io.on('connection', (socket) => {
     console.log('joining', session);
     socket.join(session);
   });
-  socket.on('datum', (data) => {
-    io.emit('datum', data);
-    io.to(`cool-sess`).emit('datum', 'cool session');
-  });
+  // socket.on('datum', (data) => {
+  //   io.emit('datum', data);
+  //   io.to(`cool-sess`).emit('datum', 'cool session');
+  // });
 });
 
-// //Increase roomno 2 clients are present in a room.
-// if(io.nsps['/'].adapter.rooms["room-"+roomno] && io.nsps['/'].adapter.rooms["room-"+roomno].length > 1) roomno++;
-// socket.join("room-"+roomno);
-
-// //Send this event to everyone in the room.
-// io.sockets.in("room-"+roomno).emit('connectToRoom', "You are in room no. "+roomno);
+function extractEvent(message) {
+  if (message.kind === 'storage#object' && message.name) {
+    const regex = /sessions\/(.+)\/balls\/(.+).json/;
+    const matches = message.name.match(regex);
+    if (matches) {
+      const session = matches[1];
+      return {
+        session: session,
+        data: {
+          event: "storage_done",
+          ball: {
+            session: session,
+            id: matches[2]
+          }
+        }
+      }
+    }
+  }
+  return message;
+}
 
 app.post('/pubsub/push', jsonBodyParser, (req, res) => {
   if (req.query.token !== PUBSUB_VERIFICATION_TOKEN) {
@@ -54,9 +68,13 @@ app.post('/pubsub/push', jsonBodyParser, (req, res) => {
     'utf-8'
   ));
 
-  console.log('received message', req.body, message);
+  const event = extractEvent(message);
 
-  io.to(`${message.session}`).emit('datum', message.data);
+  console.log('received message', req.body, message, event);
+
+  if (event && event.session) {
+    io.to(`${event.session}`).emit('datum', event.data);
+  }
 
   res.status(200).send();
 });
