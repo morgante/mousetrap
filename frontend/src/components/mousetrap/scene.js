@@ -1,6 +1,6 @@
 import PropTypes from "prop-types";
 import React from "react";
-import Matter, { Body, Bodies, Composite, Events, World, Common } from "matter-js";
+import Matter, { Body, Bodies, Composite, Events, World, Common, Constraint } from "matter-js";
 import _ from 'lodash';
 import update from 'immutability-helper';
 
@@ -51,6 +51,8 @@ class Scene extends React.Component {
         const engine = Matter.Engine.create({});
         const world = engine.world;
 
+        world.gravity.y = 0;
+
         const scale = {
             x: 1,
             y: 1
@@ -67,16 +69,10 @@ class Scene extends React.Component {
             }
         });
 
-        World.add(engine.world, [
-            Bodies.rectangle(scale.x * 200, 150, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
-            Bodies.rectangle(scale.x * 600, 350, scale.x * 500, 20, { isStatic: true, angle: -Math.PI * 0.06 }),
-            Bodies.rectangle(scale.x * 200, 480, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
-        ]);
-
         // Add a sensor
         const addBox = (x, y, width, height, opts) => {
             const options = {
-                isStatic: true,
+                // isStatic: true,
                 render: {
                     strokeStyle: ballColors['red'],
                     lineWidth: 1
@@ -86,7 +82,7 @@ class Scene extends React.Component {
             const boxes = {
                 sensor: Bodies.rectangle(x, y, width - 50, height - 50, {
                     isSensor: true,
-                    isStatic: true,
+                    // isStatic: true,
                     render: {
                         lineWidth: 1
                     }
@@ -97,24 +93,19 @@ class Scene extends React.Component {
                 right: Bodies.rectangle(x + (width / 2), y, 1, height, options)
             };
 
-            World.add(world, _.values(boxes));
+            var boxBody = Body.create({
+                parts: _.values(boxes)
+            });
 
-            return boxes;
+            World.add(world, boxBody);
+
+            return {
+                body: boxBody,
+                width,
+                height,
+                ...boxes
+            };
         }
-
-        const boxDoor = (isBoxed) => (box_name, body) => {
-            console.log("enter/exit bot", isBoxed, body);
-            const ballState = this.state.balls[body.label];
-            this.setState(update(this.state, {
-                balls: {
-                    [ballState.ball]: {
-                        boxed: {$set: isBoxed}
-                    }
-                }
-            }));
-        };
-        const enterBox = boxDoor(true);
-        const exitBox = boxDoor(false);
 
         // Add the first box
         const entrypointBox = addBox(scale.x * 600, 150, scale.x * 300, 100, {
@@ -123,58 +114,112 @@ class Scene extends React.Component {
             }
         });
 
-        entrypointBox.bottom.collisionFilter.mask = ballStages["default"] | ballStages["box_blocked"];
-
-        Events.on(engine, 'collisionStart', function(event) {
-            _.each(event.pairs, (pair) => {
-                if (pair.bodyA === entrypointBox.sensor) {
-                    enterBox("collider", pair.bodyB);
-                } else if (pair.bodyB === entrypointBox.sensor) {
-                    enterBox("collider", pair.bodyA);
-                }
-            });
+        const boxTwo = addBox(scale.x * 300, 150, scale.x * 300, 100, {
+            // collisionFilter: {
+            //     mask: ballStages["default"] | ballStages["box_blocked"] | ballStages["box_exit"]
+            // }
         });
 
-        Events.on(engine, 'collisionEnd', function(event) {
-            _.each(event.pairs, (pair) => {
-                if (pair.bodyA === entrypointBox.sensor) {
-                    exitBox("collider", pair.bodyB);
-                } else if (pair.bodyB === entrypointBox.sensor) {
-                    exitBox("collider", pair.bodyA);
-                }
-            });
-        });
+        // const pipe = Bodies.rectangle(scale.x * 200, 150, scale.x * 500, 20, {
+        //     isStatic: false,
+        //     angle: Math.PI * 0.06
+        // });
+        // World.add(world, pipe);
 
-        const explode = (body) => {
-            const ballState = this.state.balls[body.label];
-            if (body.isStatic || ballState === undefined || !ballState.boxed) {
-                return;
-            }
+        console.log("info", entrypointBox);
 
-            const forceMagnitude = 0.01 * body.mass;
-
-            Body.applyForce(body, body.position, {
-                x: (forceMagnitude + Common.random() * forceMagnitude) * Common.choose([1, -1]),
-                y: -forceMagnitude + Common.random() * -forceMagnitude
-            });
-        }
-
-        var counter = 0;
-        Events.on(engine, 'afterUpdate', function(event) {
-            counter += 1;
-            // every 0.5 sec
-            if (counter >= 60 * 0.5) {
-                // create some random forces
-                const bodies = Composite.allBodies(engine.world);
-
-                for (var i = 0; i < bodies.length; i++) {
-                    explode(bodies[i]);
-                }
-
-                // reset counter
-                counter = 0;
+        var constraint = Constraint.create({
+            bodyA: boxTwo.body,
+            pointA: {
+                x: 1 * (boxTwo.width / 2),
+                y: 0
+            },
+            bodyB: entrypointBox.body,
+            pointB: {
+                x: -1 * (entrypointBox.width / 2),
+                y: 0
             }
         });
+        World.add(world, constraint);
+
+        // var ropeA = Composites.stack(100, 50, 8, 1, 10, 10, function(x, y) {
+        //     return Bodies.rectangle(x, y, 50, 20, { collisionFilter: { group: group } });
+        // });
+
+        // World.add(engine.world, [
+        //     Bodies.rectangle(scale.x * 200, 150, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
+        //     Bodies.rectangle(scale.x * 600, 350, scale.x * 500, 20, { isStatic: true, angle: -Math.PI * 0.06 }),
+        //     Bodies.rectangle(scale.x * 200, 480, scale.x * 500, 20, { isStatic: true, angle: Math.PI * 0.06 }),
+        // ]);
+
+        // const boxDoor = (isBoxed) => (box_name, body) => {
+        //     console.log("enter/exit bot", isBoxed, body);
+        //     const ballState = this.state.balls[body.label];
+        //     this.setState(update(this.state, {
+        //         balls: {
+        //             [ballState.ball]: {
+        //                 boxed: {$set: isBoxed}
+        //             }
+        //         }
+        //     }));
+        // };
+        // const enterBox = boxDoor(true);
+        // const exitBox = boxDoor(false);
+
+
+
+        // entrypointBox.bottom.collisionFilter.mask = ballStages["default"] | ballStages["box_blocked"];
+
+        // Events.on(engine, 'collisionStart', function(event) {
+        //     _.each(event.pairs, (pair) => {
+        //         if (pair.bodyA === entrypointBox.sensor) {
+        //             enterBox("collider", pair.bodyB);
+        //         } else if (pair.bodyB === entrypointBox.sensor) {
+        //             enterBox("collider", pair.bodyA);
+        //         }
+        //     });
+        // });
+
+        // Events.on(engine, 'collisionEnd', function(event) {
+        //     _.each(event.pairs, (pair) => {
+        //         if (pair.bodyA === entrypointBox.sensor) {
+        //             exitBox("collider", pair.bodyB);
+        //         } else if (pair.bodyB === entrypointBox.sensor) {
+        //             exitBox("collider", pair.bodyA);
+        //         }
+        //     });
+        // });
+
+        // const explode = (body) => {
+        //     const ballState = this.state.balls[body.label];
+        //     if (body.isStatic || ballState === undefined || !ballState.boxed) {
+        //         return;
+        //     }
+
+        //     const forceMagnitude = 0.01 * body.mass;
+
+        //     Body.applyForce(body, body.position, {
+        //         x: (forceMagnitude + Common.random() * forceMagnitude) * Common.choose([1, -1]),
+        //         y: -forceMagnitude + Common.random() * -forceMagnitude
+        //     });
+        // }
+
+        // var counter = 0;
+        // Events.on(engine, 'afterUpdate', function(event) {
+        //     counter += 1;
+        //     // every 0.5 sec
+        //     if (counter >= 60 * 0.5) {
+        //         // create some random forces
+        //         const bodies = Composite.allBodies(engine.world);
+
+        //         for (var i = 0; i < bodies.length; i++) {
+        //             explode(bodies[i]);
+        //         }
+
+        //         // reset counter
+        //         counter = 0;
+        //     }
+        // });
 
         // add mouse control
         var mouse = Matter.Mouse.create(render.canvas);
