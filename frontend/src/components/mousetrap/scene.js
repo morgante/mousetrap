@@ -71,22 +71,19 @@ class Scene extends React.Component {
 
         // Add a sensor
         const addBox = (x, y, width, height, opts) => {
-            const options = {
-                isStatic: true,
-                render: {
-                    strokeStyle: ballColors['red'],
-                    lineWidth: 1
-                },
-            };
             const dimensions = {
                 top: [0, height / -2, width, 1],
                 bottom: [0, height / 2, width, 1],
                 left: [width / -2, 0, 1, height],
                 right: [width / 2, 0, 1, height]
-            }
+            };
+
             const boxes = _.mapValues(dimensions, (coordinates) => {
                 return Bodies.rectangle(x + coordinates[0], y + coordinates[1], coordinates[2], coordinates[3], {
-                    ...options
+                    render: {
+                        strokeStyle: ballColors['red'],
+                        lineWidth: 1
+                    },
                 })
             });
             // boxes.sensor = Bodies.rectangle(x, y, width - 50, height - 50, {
@@ -110,7 +107,6 @@ class Scene extends React.Component {
 
             const addEdge = (coordinates) => {
                 const edge = Bodies.rectangle(x + coordinates[0], y + coordinates[1], coordinates[2], coordinates[3], {
-                    ...options,
                     isStatic: true,
                     collisionFilter: {
                         group: -10
@@ -176,33 +172,23 @@ class Scene extends React.Component {
         }
 
         const addRope = (length) => {
-            const num = length;
-            var rope = Composites.stack(100, 50, num, 1, 10, 10, (x, y) => {
-                return Bodies.rectangle(x, y, 50, 20, {
+            const width = length * 50;
+
+            const bodies = [
+                Bodies.rectangle(0, 0, width, 20, {
                     collisionFilter: {
                         group: -10
                     },
-                });
-            });
+                })
+            ];
 
-            Composites.chain(rope, 0.5, 0, -0.5, 0, {
-                stiffness: 0.3, length: 1, render: { type: 'line' }
-            });
-
-            // const constraint = Constraint.create({
-            //     pointA: { x: x, y: y },
-            //     bodyB: rope.bodies[0],
-            //     pointB: { x: -25, y: 0 },
-            //     length: 0,
-            //     stiffness: 1
-            // });
-
-            World.add(world, rope);
+            World.add(world, bodies);
 
             return {
-                rope: rope,
-                start: rope.bodies[0],
-                end: rope.bodies[rope.bodies.length - 1]
+                length,
+                width,
+                start: bodies[0],
+                end: bodies[bodies.length - 1]
             };
         }
 
@@ -215,8 +201,8 @@ class Scene extends React.Component {
             };
 
             const ropePoints = {
-                start: {x: -25, y: 0},
-                end: {x: 25, y: 0}
+                start: {x: -0.5 * rope.width, y: 0},
+                end: {x: 0.5 * rope.width, y: 0}
             };
 
             const boxPoint = points[vertex];
@@ -280,8 +266,8 @@ class Scene extends React.Component {
 
     addBall(ball) {
         const body = Bodies.circle(210, 100, 20, {
-            // frictionAir: 0,
-            // friction: 0.0001,
+            frictionAir: 0,
+            friction: 0.0001,
             // restitution: 0.3,
             label: ball.id,
             render: {
